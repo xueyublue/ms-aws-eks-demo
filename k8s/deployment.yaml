@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-app
+  namespace: todo-app
+  labels:
+    app.kubernetes.io/name: ms-aws-eks-demo
+    app.kubernetes.io/component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todo-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0     # never take a pod down before a new one is ready
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: todo-app
+        app.kubernetes.io/name: ms-aws-eks-demo
+        app.kubernetes.io/component: api
+    spec:
+      # ── Security context ───────────────────────────────────────────────────
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      # ── Graceful shutdown ──────────────────────────────────────────────────
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: todo-app
+          # Replace with your actual ECR image URI.
+          # The CI/CD workflow substitutes IMAGE_PLACEHOLDER at deploy time.
+          image: IMAGE_PLACEHOLDER
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          # ── Environment ───────────────────────────────────────────────────
+          envFrom:
+            - configMapRef:
+                name: todo-app-config
+
+          # ── Lifecycle ─────────────────────────────────────────────────────
+          lifecycle:
+            preStop:
+              # Pause before SIGTERM so the ALB/NLB finishes deregistering the
+              # pod IP. Without this, in-flight requests get 502s during rollouts.
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+
+          # ── Probes ────────────────────────────────────────────────────────
+          # startupProbe defers liveness/readiness until the app has started.
+          # initialDelaySeconds on the other probes is therefore not needed.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            # Allow up to 60 s for the app to start (12 × 5 s)
+            failureThreshold: 12
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 3
+
+          # ── Resources ─────────────────────────────────────────────────────
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+
+          # ── Container security ────────────────────────────────────────────
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # ── Writable tmp dir (required when readOnlyRootFilesystem: true) ─
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+      # ── Spread pods across AZs for HA ─────────────────────────────────────
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: todo-app

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-app-config
+  namespace: todo-app
+  labels:
+    app.kubernetes.io/name: ms-aws-eks-demo
+data:
+  # JVM and Spring settings that are safe to expose as plain config.
+  # Sensitive values (passwords, secrets) must live in a Secret or AWS Secrets Manager.
+  SPRING_PROFILES_ACTIVE: "k8s"
+  SERVER_PORT: "8080"
+  JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
