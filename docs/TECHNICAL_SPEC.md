@@ -29,19 +29,21 @@
 
 ## 2. Technology Stack
 
-| Concern          | Choice                                                                 |
-| ---------------- | ---------------------------------------------------------------------- |
-| Language         | Java 25 (LTS, JEP-preview-free subset)                                 |
-| Build            | Maven 3.9+                                                             |
-| Framework        | Spring Boot 4.0.5 (Spring Framework 7)                                 |
-| Web              | `spring-boot-starter-web` (embedded Tomcat, Spring MVC)                |
-| Persistence      | `spring-boot-starter-data-jpa` (Hibernate 7.x)                         |
-| Validation       | `spring-boot-starter-validation` (Jakarta Bean Validation)             |
-| Database         | H2 2.x, in-memory, `MODE=LEGACY`                                       |
-| JSON             | Jackson 3 (shipped by Spring Boot 4)                                   |
-| Testing          | `spring-boot-starter-test` (JUnit 5, Mockito, AssertJ)                 |
-| Packaging        | Executable Spring Boot JAR                                             |
-| Target runtime   | OpenJDK 25 on Linux (future: container on EKS)                         |
+
+| Concern        | Choice                                                     |
+| -------------- | ---------------------------------------------------------- |
+| Language       | Java 25 (LTS, JEP-preview-free subset)                     |
+| Build          | Maven 3.9+                                                 |
+| Framework      | Spring Boot 4.0.5 (Spring Framework 7)                     |
+| Web            | `spring-boot-starter-web` (embedded Tomcat, Spring MVC)    |
+| Persistence    | `spring-boot-starter-data-jpa` (Hibernate 7.x)             |
+| Validation     | `spring-boot-starter-validation` (Jakarta Bean Validation) |
+| Database       | H2 2.x, in-memory, `MODE=LEGACY`                           |
+| JSON           | Jackson 3 (shipped by Spring Boot 4)                       |
+| Testing        | `spring-boot-starter-test` (JUnit 5, Mockito, AssertJ)     |
+| Packaging      | Executable Spring Boot JAR                                 |
+| Target runtime | OpenJDK 25 on Linux (future: container on EKS)             |
+
 
 ### 2.1 Version rationale
 
@@ -94,7 +96,7 @@ com.example.todo
 - **Entity as DTO.** For a demo-sized API, the JPA entity doubles as the request/response payload. This will not scale to richer domains — the agreed evolution is to introduce dedicated `TodoRequest` / `TodoResponse` records once any field needs to diverge (e.g. hiding `updatedAt`, adding computed fields).
 - **Constructor injection.** All collaborators are injected via constructors (no field injection). This keeps classes testable and avoids `@Autowired` on fields.
 - **Local exception handler.** `@ExceptionHandler(TodoNotFoundException.class)` is declared on the controller rather than in a global `@ControllerAdvice` because the domain currently has a single resource. Promote to advice when a second controller appears.
-- **`spring.jpa.open-in-view=false`.** Open-session-in-view is disabled so lazy-loading cannot silently trigger database calls during response serialization — important for predictable latency.
+- `**spring.jpa.open-in-view=false`.** Open-session-in-view is disabled so lazy-loading cannot silently trigger database calls during response serialization — important for predictable latency.
 
 ---
 
@@ -102,14 +104,16 @@ com.example.todo
 
 ### 4.1 Entity: `Todo`
 
-| Field         | Java type   | Column           | Constraints                        | Notes                               |
-| ------------- | ----------- | ---------------- | ---------------------------------- | ----------------------------------- |
-| `id`          | `Long`      | `id` (PK)        | `GenerationType.IDENTITY`          | Assigned by DB on insert.           |
-| `title`       | `String`    | `title`          | `@NotBlank`, `@Size(max=200)`      | Required on create and update.      |
-| `description` | `String`    | `description`    | `@Size(max=2000)`, nullable        | Optional.                           |
-| `completed`   | `boolean`   | `completed`      | not null (primitive)               | Defaults to `false`.                |
-| `createdAt`   | `Instant`   | `created_at`     | set by service on create           | UTC.                                |
-| `updatedAt`   | `Instant`   | `updated_at`     | set by service on create & update  | UTC.                                |
+
+| Field         | Java type | Column        | Constraints                       | Notes                          |
+| ------------- | --------- | ------------- | --------------------------------- | ------------------------------ |
+| `id`          | `Long`    | `id` (PK)     | `GenerationType.IDENTITY`         | Assigned by DB on insert.      |
+| `title`       | `String`  | `title`       | `@NotBlank`, `@Size(max=200)`     | Required on create and update. |
+| `description` | `String`  | `description` | `@Size(max=2000)`, nullable       | Optional.                      |
+| `completed`   | `boolean` | `completed`   | not null (primitive)              | Defaults to `false`.           |
+| `createdAt`   | `Instant` | `created_at`  | set by service on create          | UTC.                           |
+| `updatedAt`   | `Instant` | `updated_at`  | set by service on create & update | UTC.                           |
+
 
 ### 4.2 DDL (generated by Hibernate)
 
@@ -139,13 +143,15 @@ All endpoints live under `/api/todos`. Content type is `application/json;charset
 
 ### 5.1 Endpoints
 
-| # | Method | Path                | Success      | Failure codes          | Description               |
-| - | ------ | ------------------- | ------------ | ---------------------- | ------------------------- |
-| 1 | GET    | `/api/todos`        | 200 OK       | —                      | List all todos.           |
-| 2 | GET    | `/api/todos/{id}`   | 200 OK       | 404                    | Get one todo.             |
-| 3 | POST   | `/api/todos`        | 201 Created  | 400                    | Create a todo.            |
-| 4 | PUT    | `/api/todos/{id}`   | 200 OK       | 400, 404               | Full update of a todo.    |
-| 5 | DELETE | `/api/todos/{id}`   | 204 No Content | 404                  | Delete a todo.            |
+
+| #   | Method | Path              | Success        | Failure codes | Description            |
+| --- | ------ | ----------------- | -------------- | ------------- | ---------------------- |
+| 1   | GET    | `/api/todos`      | 200 OK         | —             | List all todos.        |
+| 2   | GET    | `/api/todos/{id}` | 200 OK         | 404           | Get one todo.          |
+| 3   | POST   | `/api/todos`      | 201 Created    | 400           | Create a todo.         |
+| 4   | PUT    | `/api/todos/{id}` | 200 OK         | 400, 404      | Full update of a todo. |
+| 5   | DELETE | `/api/todos/{id}` | 204 No Content | 404           | Delete a todo.         |
+
 
 ### 5.2 Request / response shape
 
@@ -204,16 +210,18 @@ curl -X DELETE http://localhost:8080/api/todos/1
 
 ## 6. Configuration
 
-| Property                                  | Default                                       | Purpose                                         |
-| ----------------------------------------- | --------------------------------------------- | ----------------------------------------------- |
-| `spring.application.name`                 | `ms-aws-eks-demo`                             | Used in logs and future service discovery.      |
-| `server.port`                             | `8080`                                        | HTTP listener.                                  |
-| `spring.datasource.url`                   | `jdbc:h2:mem:tododb;DB_CLOSE_DELAY=-1;...`    | In-memory H2.                                   |
-| `spring.jpa.hibernate.ddl-auto`           | `update`                                      | Schema managed by Hibernate for the demo.       |
-| `spring.jpa.show-sql`                     | `true`                                        | Log SQL (demo only; disable in prod).           |
-| `spring.jpa.open-in-view`                 | `false`                                       | Prevent lazy-loading during rendering.          |
-| `spring.h2.console.enabled`               | `true`                                        | Enables `/h2-console` endpoint.                 |
-| `spring.h2.console.path`                  | `/h2-console`                                 | Path of the H2 web console.                     |
+
+| Property                        | Default                                    | Purpose                                    |
+| ------------------------------- | ------------------------------------------ | ------------------------------------------ |
+| `spring.application.name`       | `ms-aws-eks-demo`                          | Used in logs and future service discovery. |
+| `server.port`                   | `8080`                                     | HTTP listener.                             |
+| `spring.datasource.url`         | `jdbc:h2:mem:tododb;DB_CLOSE_DELAY=-1;...` | In-memory H2.                              |
+| `spring.jpa.hibernate.ddl-auto` | `update`                                   | Schema managed by Hibernate for the demo.  |
+| `spring.jpa.show-sql`           | `true`                                     | Log SQL (demo only; disable in prod).      |
+| `spring.jpa.open-in-view`       | `false`                                    | Prevent lazy-loading during rendering.     |
+| `spring.h2.console.enabled`     | `true`                                     | Enables `/h2-console` endpoint.            |
+| `spring.h2.console.path`        | `/h2-console`                              | Path of the H2 web console.                |
+
 
 All properties are plain `application.properties`; no profile-specific files yet. When EKS work begins, a `application-k8s.properties` (or env-var overrides) will be added.
 
@@ -239,11 +247,13 @@ java -jar target/ms-aws-eks-demo-0.0.1-SNAPSHOT.jar
 
 ### 7.3 Verified environment
 
-| Tool  | Version                               |
-| ----- | ------------------------------------- |
+
+| Tool  | Version                                            |
+| ----- | -------------------------------------------------- |
 | JDK   | Oracle OpenJDK 25.0.2 LTS (build 25.0.2+10-LTS-69) |
-| Maven | Apache Maven 3.9.6                    |
-| OS    | Windows 11 (amd64); target Linux/amd64 |
+| Maven | Apache Maven 3.9.6                                 |
+| OS    | Windows 11 (amd64); target Linux/amd64             |
+
 
 ---
 
@@ -282,7 +292,7 @@ java -jar target/ms-aws-eks-demo-0.0.1-SNAPSHOT.jar
 
 - **Storage is in-memory per process.** Restart loses all data. Horizontal replicas do **not** share state; a single instance only.
 - **No pagination** on `GET /api/todos` — acceptable for a demo dataset, unacceptable for production.
-- **`PUT` is full replacement only.** There is no `PATCH` today.
+- `**PUT` is full replacement only.** There is no `PATCH` today.
 - **Error model is ad-hoc.** Spring 4 ships `ProblemDetail` (RFC 9457); a future iteration should switch handlers to return `ProblemDetail` consistently.
 
 ---
@@ -305,3 +315,4 @@ java -jar target/ms-aws-eks-demo-0.0.1-SNAPSHOT.jar
 - **Spring Data JPA** — Spring module that wraps JPA/Hibernate behind repository interfaces.
 - **DDL-auto update** — Hibernate mode where the schema is adjusted to match entities on startup.
 - **Open-session-in-view** — Spring pattern that keeps the JPA session open for the whole HTTP request; disabled here.
+

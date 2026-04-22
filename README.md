@@ -20,22 +20,24 @@ A minimal Spring Boot 4 (Java 25) REST service exposing a CRUD API for `Todo` ba
 mvn spring-boot:run
 ```
 
-The app starts on http://localhost:8080.
+The app starts on [http://localhost:8080](http://localhost:8080).
 
-The H2 console is available at http://localhost:8080/h2-console
+The H2 console is available at [http://localhost:8080/h2-console](http://localhost:8080/h2-console)
 (JDBC URL: `jdbc:h2:mem:tododb`, user: `sa`, no password).
 
 ## API
 
 Base path: `/api/todos`
 
-| Method | Path              | Description       |
-| ------ | ----------------- | ----------------- |
-| GET    | `/api/todos`      | List all todos    |
-| GET    | `/api/todos/{id}` | Get one todo      |
-| POST   | `/api/todos`      | Create a todo     |
-| PUT    | `/api/todos/{id}` | Update a todo     |
-| DELETE | `/api/todos/{id}` | Delete a todo     |
+
+| Method | Path              | Description    |
+| ------ | ----------------- | -------------- |
+| GET    | `/api/todos`      | List all todos |
+| GET    | `/api/todos/{id}` | Get one todo   |
+| POST   | `/api/todos`      | Create a todo  |
+| PUT    | `/api/todos/{id}` | Update a todo  |
+| DELETE | `/api/todos/{id}` | Delete a todo  |
+
 
 ### Example
 
@@ -72,7 +74,7 @@ mvn test
 
 ## Deploy to AWS EKS
 
-See [`docs/EKS_DEPLOYMENT_GUIDE.md`](docs/EKS_DEPLOYMENT_GUIDE.md) for the full step-by-step guide.
+See `[docs/EKS_DEPLOYMENT_GUIDE.md](docs/EKS_DEPLOYMENT_GUIDE.md)` for the full step-by-step guide.
 
 **High-level flow:**
 

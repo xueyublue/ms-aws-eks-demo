@@ -6,32 +6,25 @@ Pre-requisites and step-by-step instructions for deploying `ms-aws-eks-demo` to 
 
 ## Prerequisites
 
-| Tool                     | Minimum version | Install                                    |
-| ------------------------ | --------------- | ------------------------------------------ |
-| AWS CLI                  | v2              | https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html |
-| `kubectl`                | 1.29+           | https://kubernetes.io/docs/tasks/tools/    |
-| `eksctl`                 | 0.180+          | https://eksctl.io/introduction/            |
-| Docker / Docker Desktop  | 24+             | https://docs.docker.com/get-docker/        |
-| Java 25 + Maven 3.9      | —               | JDK already on PATH                        |
+
+| Tool                    | Minimum version | Install                                                                                                                                    |
+| ----------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| AWS CLI                 | v2              | [https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) |
+| `kubectl`               | 1.29+           | [https://kubernetes.io/docs/tasks/tools/](https://kubernetes.io/docs/tasks/tools/)                                                         |
+| `eksctl`                | 0.180+          | See [`EKSCTL_SETUP_GUIDE.md`](EKSCTL_SETUP_GUIDE.md) for Windows install + IAM setup                                                      |
+| Docker / Docker Desktop | 24+             | [https://docs.docker.com/get-docker/](https://docs.docker.com/get-docker/)                                                                 |
+| Java 25 + Maven 3.9     | —               | JDK already on PATH                                                                                                                        |
+
 
 ---
 
 ## 1. Bootstrap the EKS Cluster
 
-```bash
-eksctl create cluster \
-  --name   my-eks-cluster \
-  --region ap-southeast-1 \
-  --nodes-min 1 \
-  --nodes-max 2 \
-  --node-type m5.large \
-  --with-oidc \
-  --alb-ingress-access
-```
-
-`--with-oidc` enables IAM Roles for Service Accounts (IRSA).  
-Node count is sized to match the HPA range (min 1, max 2 pods).  
-The cluster creation takes ~15 minutes.
+> **See [`EKSCTL_SETUP_GUIDE.md`](EKSCTL_SETUP_GUIDE.md)** for the full step-by-step instructions:
+> installing `eksctl`, configuring IAM permissions, and running the cluster creation command
+> (Step 8 of that guide).
+>
+> Once `kubectl get nodes` shows a node in `Ready` state, continue below.
 
 ---
 
@@ -157,13 +150,15 @@ curl "$ALB/actuator/health"
 
 Set the following in your GitHub repository (**Settings → Secrets and variables**):
 
-| Kind     | Name                    | Value                                              |
-| -------- | ----------------------- | -------------------------------------------------- |
-| Secret   | `AWS_ACCESS_KEY_ID`     | IAM user access key (or use OIDC — recommended)    |
-| Secret   | `AWS_SECRET_ACCESS_KEY` | Corresponding secret key                           |
-| Variable | `AWS_REGION`            | e.g. `ap-southeast-1`                              |
-| Variable | `ECR_REPOSITORY`        | e.g. `ms-aws-eks-demo`                             |
-| Variable | `EKS_CLUSTER`           | e.g. `my-eks-cluster`                              |
+
+| Kind     | Name                    | Value                                           |
+| -------- | ----------------------- | ----------------------------------------------- |
+| Secret   | `AWS_ACCESS_KEY_ID`     | IAM user access key (or use OIDC — recommended) |
+| Secret   | `AWS_SECRET_ACCESS_KEY` | Corresponding secret key                        |
+| Variable | `AWS_REGION`            | e.g. `ap-southeast-1`                           |
+| Variable | `ECR_REPOSITORY`        | e.g. `ms-aws-eks-demo`                          |
+| Variable | `EKS_CLUSTER`           | e.g. `my-eks-cluster`                           |
+
 
 After merging to `main` the workflow will: test → build image → push to ECR → deploy to EKS → wait for rollout.
 
@@ -197,11 +192,11 @@ The Ingress currently listens on **HTTP port 80 only**. To enable HTTPS:
 
 1. Request or import a certificate in **AWS Certificate Manager**.
 2. In `k8s/ingress.yaml`, uncomment and fill in:
-   ```yaml
+  ```yaml
    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
    # alb.ingress.kubernetes.io/ssl-redirect: "443"
    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:<region>:<account>:certificate/<id>
-   ```
+  ```
 3. Re-apply the Ingress: `kubectl apply -f k8s/ingress.yaml`
 
 ---
@@ -213,3 +208,4 @@ kubectl delete namespace todo-app          # removes all app resources
 eksctl delete cluster --name my-eks-cluster # destroys the EKS cluster
 aws ecr delete-repository --repository-name ms-aws-eks-demo --force
 ```
+
