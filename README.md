@@ -82,7 +82,7 @@ push to main
        ├─ mvn test
        ├─ docker build → push to Amazon ECR
        └─ kubectl apply → Amazon EKS
-                              ├─ Deployment (2–10 replicas, rolling update)
+                              ├─ Deployment (1–2 replicas, rolling update)
                               ├─ Service (ClusterIP)
                               ├─ Ingress (AWS ALB, /api/* + /actuator/health/*)
                               └─ HPA (CPU 70% / Memory 80%)

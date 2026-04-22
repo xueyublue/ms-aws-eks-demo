@@ -22,14 +22,15 @@ Pre-requisites and step-by-step instructions for deploying `ms-aws-eks-demo` to 
 eksctl create cluster \
   --name   my-eks-cluster \
   --region ap-southeast-1 \
-  --nodes-min 2 \
-  --nodes-max 5 \
+  --nodes-min 1 \
+  --nodes-max 2 \
   --node-type m5.large \
   --with-oidc \
   --alb-ingress-access
 ```
 
 `--with-oidc` enables IAM Roles for Service Accounts (IRSA).  
+Node count is sized to match the HPA range (min 1, max 2 pods).  
 The cluster creation takes ~15 minutes.
 
 ---
@@ -170,15 +171,42 @@ After merging to `main` the workflow will: test → build image → push to ECR 
 
 ---
 
-## 9. TLS / HTTPS (optional)
+## 9. Scaling
 
-1. Request or import a certificate in **AWS Certificate Manager**.
-2. Uncomment and set `alb.ingress.kubernetes.io/certificate-arn` in `k8s/ingress.yaml`.
-3. The Ingress already configures the 80 → 443 redirect (`ssl-redirect: "443"`).
+The HPA is configured with **min 1 / max 2 replicas**, scaling on CPU ≥ 70% or memory ≥ 80%.
+
+```bash
+# Check current replica count and HPA status
+kubectl get hpa todo-app -n todo-app
+
+# Manually scale (bypasses HPA — HPA will reconcile back)
+kubectl scale deployment todo-app --replicas=2 -n todo-app
+```
+
+To increase the ceiling, edit `k8s/hpa.yaml` (`minReplicas` / `maxReplicas`) and also raise the EKS node group to match:
+
+```bash
+eksctl scale nodegroup --cluster my-eks-cluster --nodes-min <N> --nodes-max <M> --name <nodegroup>
+```
 
 ---
 
-## 10. Teardown
+## 10. TLS / HTTPS (optional)
+
+The Ingress currently listens on **HTTP port 80 only**. To enable HTTPS:
+
+1. Request or import a certificate in **AWS Certificate Manager**.
+2. In `k8s/ingress.yaml`, uncomment and fill in:
+   ```yaml
+   # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+   # alb.ingress.kubernetes.io/ssl-redirect: "443"
+   # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:<region>:<account>:certificate/<id>
+   ```
+3. Re-apply the Ingress: `kubectl apply -f k8s/ingress.yaml`
+
+---
+
+## 11. Teardown
 
 ```bash
 kubectl delete namespace todo-app          # removes all app resources
