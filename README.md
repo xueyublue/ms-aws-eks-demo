@@ -69,3 +69,23 @@ java -jar target/ms-aws-eks-demo-0.0.1-SNAPSHOT.jar
 ```bash
 mvn test
 ```
+
+## Deploy to AWS EKS
+
+See [`docs/EKS_DEPLOYMENT_GUIDE.md`](docs/EKS_DEPLOYMENT_GUIDE.md) for the full step-by-step guide.
+
+**High-level flow:**
+
+```
+push to main
+  └─ GitHub Actions
+       ├─ mvn test
+       ├─ docker build → push to Amazon ECR
+       └─ kubectl apply → Amazon EKS
+                              ├─ Deployment (2–10 replicas, rolling update)
+                              ├─ Service (ClusterIP)
+                              ├─ Ingress (AWS ALB, /api/* + /actuator/health/*)
+                              └─ HPA (CPU 70% / Memory 80%)
+```
+
+**Required GitHub secrets/variables:** `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `ECR_REPOSITORY`, `EKS_CLUSTER`.

@@ -1,0 +1,152 @@
+name: CI / CD → AWS EKS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Minimal permissions by default; each job overrides what it needs.
+permissions:
+  contents: read
+
+env:
+  AWS_REGION:      ${{ vars.AWS_REGION }}          # e.g. ap-southeast-1
+  ECR_REPOSITORY:  ${{ vars.ECR_REPOSITORY }}      # e.g. ms-aws-eks-demo
+  EKS_CLUSTER:     ${{ vars.EKS_CLUSTER }}         # e.g. my-eks-cluster
+  K8S_NAMESPACE:   todo-app
+  IMAGE_TAG:       ${{ github.sha }}
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 1: build and test
+  # ────────────────────────────────────────────────────────────────────────────
+  build-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: "25"
+          distribution: temurin
+          cache: maven
+
+      - name: Build and run tests
+        run: mvn -B -ntp clean verify
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 2: build Docker image, push to ECR (main branch only)
+  # ────────────────────────────────────────────────────────────────────────────
+  publish-image:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required for GitHub OIDC token (if switching from access keys to OIDC)
+      id-token: write
+    outputs:
+      image-uri: ${{ steps.set-image.outputs.image-uri }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+          # Prefer OIDC / IAM role — replace the above two lines with:
+          # role-to-assume: arn:aws:iam::<account>:role/github-actions-ecr-push
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        id: set-image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          IMAGE_URI="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          CACHE_URI="$REGISTRY/$ECR_REPOSITORY:cache"
+          docker buildx build \
+            --platform linux/amd64 \
+            --tag "$IMAGE_URI" \
+            --tag "$REGISTRY/$ECR_REPOSITORY:latest" \
+            --cache-from "type=registry,ref=$CACHE_URI" \
+            --cache-to   "type=registry,ref=$CACHE_URI,mode=max" \
+            --push \
+            .
+          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 3: deploy to EKS
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy:
+    needs: publish-image
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production          # optional: use GitHub Environments for approval gate
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig \
+            --region "$AWS_REGION" \
+            --name   "$EKS_CLUSTER"
+
+      - name: Substitute image URI in Deployment manifest
+        env:
+          IMAGE_URI: ${{ needs.publish-image.outputs.image-uri }}
+        run: |
+          sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_URI|g" k8s/deployment.yaml
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/configmap.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/ingress.yaml
+          kubectl apply -f k8s/hpa.yaml
+
+      - name: Wait for rollout to complete
+        run: |
+          kubectl rollout status deployment/todo-app \
+            --namespace "$K8S_NAMESPACE" \
+            --timeout 5m
+
+      - name: Print ALB address
+        run: |
+          kubectl get ingress todo-app \
+            --namespace "$K8S_NAMESPACE" \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'

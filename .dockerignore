@@ -1,0 +1,14 @@
+target/
+.git/
+.github/
+.idea/
+*.iml
+*.iws
+*.ipr
+.mvn/
+.vscode/
+k8s/
+deploy/
+docs/
+*.md
+!README.md

@@ -1,0 +1,54 @@
+# Requires the AWS Load Balancer Controller add-on installed in the cluster.
+# Install: https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: todo-app
+  namespace: todo-app
+  labels:
+    app.kubernetes.io/name: ms-aws-eks-demo
+  annotations:
+    # ── ALB controller ────────────────────────────────────────────────────────
+    alb.ingress.kubernetes.io/scheme: internet-facing       # or "internal"
+    alb.ingress.kubernetes.io/target-type: ip               # pod IP mode (no NodePort)
+
+    # ── Listener / TLS ────────────────────────────────────────────────────────
+    # HTTP only by default. To enable HTTPS:
+    #   1. Provision a cert in ACM and paste the ARN below.
+    #   2. Uncomment the certificate-arn and ssl-redirect lines.
+    #   3. Change listen-ports to include HTTPS 443.
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    # alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:<region>:<account>:certificate/<id>
+
+    # ── Health check ──────────────────────────────────────────────────────────
+    alb.ingress.kubernetes.io/healthcheck-path: /actuator/health/readiness
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+
+    # ── Access logging (optional — update the S3 bucket name) ─────────────────
+    # alb.ingress.kubernetes.io/load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-alb-logs
+spec:
+  # ingressClassName replaces the deprecated kubernetes.io/ingress.class annotation
+  # (required for AWS Load Balancer Controller v2.3+)
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: todo-app
+                port:
+                  name: http
+          - path: /actuator/health
+            pathType: Prefix
+            backend:
+              service:
+                name: todo-app
+                port:
+                  name: http
